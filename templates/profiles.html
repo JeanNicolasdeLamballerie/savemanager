@@ -1,0 +1,15 @@
+<head>
+  <title>Hello World </title>
+  <style lang="en" type="text/css"></style>
+</head>
+
+<body>
+  <h1 class="bg-black">Go-tta Go fast</h1>
+  <h2>{{.Title}}</h2>
+  {{ range .ProfileList }}
+  <p>{{ .ProfileName }}</p>
+  {{else}}
+  <p>No Profiles found ! </p>
+  {{ end }}
+  <button> Create profile </button>
+</body>
