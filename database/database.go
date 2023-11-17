@@ -32,12 +32,19 @@ type SaveDirectory struct {
 	Path      string `gorm:"notNull"`
 	ProfileID uint
 	Profile   Profile `gorm:"foreignKey:ProfileID"`
+	TypeID    uint
+	Type      GameType `gorm:"foreignKey:TypeID"`
 }
 
 type Profile struct {
 	gorm.Model
-	ProfileName     string          `gorm:"unique"`
+	ProfileName     string `gorm:"unique"`
+	GamePath        string
 	SaveDirectories []SaveDirectory `gorm:"foreignKey:ProfileID"`
+}
+type GameType struct {
+	gorm.Model
+	Name string `gorm:"unique"`
 }
 
 // func main() {

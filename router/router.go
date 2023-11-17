@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	// "fmt"
+	"image/color"
+	"strings"
 
 	//	"log"
 	"html/template"
@@ -13,9 +16,22 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/ncruces/zenity"
+	"github.com/olahol/melody"
 )
 
 var db database.DataBase
+
+type ServerSuccess struct {
+	Resource string `json:"resource"`
+	Status   string `json:"status"`
+
+	Data UnknownData `json:"data"`
+}
+
+type UnknownData struct {
+	Value any `json:"value"`
+}
 
 func GeneralCtx(name string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -46,10 +62,10 @@ func InitRouter() (*chi.Mux, error) {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	//http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	r.Get("/i", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		t, err := template.ParseFiles("templates/profiles.html")
 		if err != nil {
-			println(err)
+			println(err.Error())
 			println("Error with template !")
 			return
 		}
@@ -62,19 +78,92 @@ func InitRouter() (*chi.Mux, error) {
 			return
 		}
 		length := len(*profiles)
+		var title string
 		if length > 0 {
-			data = ProfilesTpl{"Profile List", profiles}
+			title = "Profile List"
 		} else {
-
-			data = ProfilesTpl{"No profiles found !", profiles}
+			title = "Your first setup..."
 		}
-
+		data = ProfilesTpl{title, profiles}
 		t.Execute(w, data)
 		//	w.Write([]byte(t))
 	})
 	r.Route("/api/v1", func(r chi.Router) {
 
+		m := melody.New()
+		/////////////////////////////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////////////////////////////
+		//websocket API
+		r.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) {
+			m.HandleRequest(w, r)
+		})
+		m.HandleMessage(func(s *melody.Session, b []byte) {
+			var msg WebsocketMessage
+			err := json.Unmarshal(b, &msg)
+			if err != nil {
+				println("error :")
+				println(err.Error())
+			}
+
+			switch msg.Resource {
+			case "profile":
+				shards := strings.Split(msg.Status, ":")
+				switch shards[0] {
+				case "init":
+					if len(shards) > 1 {
+						switch shards[1] {
+						case "request-file-path":
+
+							path, err := zenity.SelectFile(zenity.Directory(), zenity.Color(color.Black))
+							if err != nil {
+								println(err.Error())
+								return
+							}
+							response := ServerSuccess{
+								Resource: "profile",
+								Status:   "success:file-path",
+								Data: UnknownData{
+									Value: path,
+								},
+							}
+							broadcasted, err := json.Marshal(response)
+							if err != nil {
+								println(err.Error())
+								return
+							}
+							m.Broadcast(broadcasted)
+						case "register":
+							m.Broadcast(b)
+							if msg.Data.GamePath == "" || msg.Data.ProfileName == "" {
+								println("ERROR : missing Path or Profile")
+								//m.Broadcast("some error")
+								return
+							}
+							newProfile := database.Profile{ProfileName: msg.Data.ProfileName, GamePath: msg.Data.GamePath}
+							// TODO include sanity check ? e.g newProfile.verify(), maybe with a regex to check the path ?
+							db.CreateProfile(&newProfile)
+
+							stringifiedProfile, err := json.Marshal(newProfile)
+							println(stringifiedProfile)
+							if err != nil {
+								println(err.Error())
+								return
+							}
+							m.Broadcast(stringifiedProfile)
+						}
+					}
+
+				}
+
+			}
+		})
+		/////////////////////////////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////////////////////////////
+		//rest API
 		r.Route("/profile", func(r chi.Router) {
+			r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+
+			})
 			r.Route("/{ID}", ProfileRoute)
 		})
 		r.Route("/save-directory", func(r chi.Router) {
@@ -87,6 +176,15 @@ func InitRouter() (*chi.Mux, error) {
 type ProfilesTpl struct {
 	Title       string
 	ProfileList *[]*database.Profile
+}
+
+type WebsocketMessage struct {
+	Resource string // profile/else
+	Status   string
+	Data     struct {
+		ProfileName string
+		GamePath    string
+	}
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,4 +236,10 @@ func dbPost(name string, profileOrDirectoryData interface{}) (article interface{
 	default:
 		return nil, errors.New("This db case does not exist")
 	}
+}
+
+/// SOCKET CODE
+
+func handleSocket(w http.ResponseWriter, r *http.Request) {
+
 }
