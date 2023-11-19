@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
+	"os"
+	"slices"
 	// "fmt"
 	"image/color"
 	"strings"
@@ -31,6 +34,68 @@ type ServerSuccess struct {
 
 type UnknownData struct {
 	Value any `json:"value"`
+}
+
+type SaveDirectoryInformations struct {
+	Information map[string]string
+	Tags        []string
+}
+
+func checkFilesInDirectory(information *SaveDirectoryInformations) func(path string, d fs.DirEntry, err error) error {
+	// var information map[string]string
+	//var tags []string
+	// information["gameType"] = "custom"
+
+	// gameType := "custom";
+	// var tags []string
+	return func(path string, d fs.DirEntry, err error) error {
+
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
+		println("NAME : ", d.Name())
+		println("INFO : ", info.Mode(), info.Name())
+		println("PATH : ", path)
+		// Check if game is ER :
+		if strings.Contains(path, "ER0000") {
+			information.Information["gameType"] = "Elden Ring"
+			// if so, check for savefile-specific mods to append in the tags :
+			if strings.Contains(path, ".co2") {
+				information.Tags = append(information.Tags, "seamless")
+			}
+			if strings.Contains(path, ".mod") {
+				information.Tags = append(information.Tags, "convergence")
+			}
+
+		}
+
+		return nil
+	}
+
+}
+func checkGameType(path string) {
+	saveDirectoryFS := os.DirFS(path)
+	information := SaveDirectoryInformations{
+		Information: map[string]string{},
+		Tags:        []string{},
+	}
+	information.Information["gameType"] = "custom"
+	err := fs.WalkDir(saveDirectoryFS, ".", checkFilesInDirectory(&information))
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	slices.Sort[[]string](information.Tags)
+	information.Tags = slices.Compact[[]string](information.Tags)
+	testval, err := json.Marshal(information)
+	if err != nil {
+		println("ERROR MARSHAL")
+		println(err.Error())
+		return
+	}
+	println(string(testval))
 }
 
 func GeneralCtx(name string) func(next http.Handler) http.Handler {
@@ -73,7 +138,6 @@ func InitRouter() (*chi.Mux, error) {
 		profiles, err := db.GetAllProfiles()
 		if err != nil {
 			println(err.Error())
-			println(profiles)
 			println("error getting profiles !")
 			return
 		}
@@ -119,6 +183,7 @@ func InitRouter() (*chi.Mux, error) {
 								println(err.Error())
 								return
 							}
+							checkGameType(path)
 							response := ServerSuccess{
 								Resource: "profile",
 								Status:   "success:file-path",
