@@ -4,17 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/fs"
+	// "io/fs"
 	"os"
-	"slices"
+	// "slices"
+
 	// "fmt"
 	"image/color"
+	"path/filepath"
 	"strings"
-
 	//	"log"
 	"html/template"
 	"net/http"
 	"savemanager/database"
+	"savemanager/filemanager"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -41,63 +43,6 @@ type SaveDirectoryInformations struct {
 	Tags        []string
 }
 
-func checkFilesInDirectory(information *SaveDirectoryInformations) func(path string, d fs.DirEntry, err error) error {
-	// var information map[string]string
-	//var tags []string
-	// information["gameType"] = "custom"
-
-	// gameType := "custom";
-	// var tags []string
-	return func(path string, d fs.DirEntry, err error) error {
-
-		if err != nil {
-			return err
-		}
-		info, err := d.Info()
-		println("NAME : ", d.Name())
-		println("INFO : ", info.Mode(), info.Name())
-		println("PATH : ", path)
-		// Check if game is ER :
-		if strings.Contains(path, "ER0000") {
-			information.Information["gameType"] = "Elden Ring"
-			// if so, check for savefile-specific mods to append in the tags :
-			if strings.Contains(path, ".co2") {
-				information.Tags = append(information.Tags, "seamless")
-			}
-			if strings.Contains(path, ".mod") {
-				information.Tags = append(information.Tags, "convergence")
-			}
-
-		}
-
-		return nil
-	}
-
-}
-func checkGameType(path string) {
-	saveDirectoryFS := os.DirFS(path)
-	information := SaveDirectoryInformations{
-		Information: map[string]string{},
-		Tags:        []string{},
-	}
-	information.Information["gameType"] = "custom"
-	err := fs.WalkDir(saveDirectoryFS, ".", checkFilesInDirectory(&information))
-	if err != nil {
-		println(err.Error())
-		return
-	}
-
-	slices.Sort[[]string](information.Tags)
-	information.Tags = slices.Compact[[]string](information.Tags)
-	testval, err := json.Marshal(information)
-	if err != nil {
-		println("ERROR MARSHAL")
-		println(err.Error())
-		return
-	}
-	println(string(testval))
-}
-
 func GeneralCtx(name string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,6 +64,8 @@ var SaveDirectoryCtx = GeneralCtx("SaveDirectory")
 // ///////////////////////////////////////////////////////////////////////////////////////////////////
 func InitRouter() (*chi.Mux, error) {
 
+	workDir, _ := os.Getwd()
+	// TODO add backup db ?
 	db := database.DataBase{Name: "main"}
 	err := db.Connect()
 	if err != nil {
@@ -128,7 +75,7 @@ func InitRouter() (*chi.Mux, error) {
 	r.Use(middleware.Logger)
 	//http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		t, err := template.ParseFiles("templates/profiles.html")
+		t, err := template.ParseFiles(filepath.Join(workDir, "templates/profiles.html"))
 		if err != nil {
 			println(err.Error())
 			println("Error with template !")
@@ -177,13 +124,13 @@ func InitRouter() (*chi.Mux, error) {
 					if len(shards) > 1 {
 						switch shards[1] {
 						case "request-file-path":
-
+							// todo put in savefile ?
 							path, err := zenity.SelectFile(zenity.Directory(), zenity.Color(color.Black))
 							if err != nil {
 								println(err.Error())
 								return
 							}
-							checkGameType(path)
+							filemanager.CheckGameType(path)
 							response := ServerSuccess{
 								Resource: "profile",
 								Status:   "success:file-path",
@@ -305,6 +252,6 @@ func dbPost(name string, profileOrDirectoryData interface{}) (article interface{
 
 /// SOCKET CODE
 
-func handleSocket(w http.ResponseWriter, r *http.Request) {
+// func handleSocket(w http.ResponseWriter, r *http.Request) {
 
-}
+// }

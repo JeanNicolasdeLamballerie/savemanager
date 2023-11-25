@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"savemanager/config"
 	"savemanager/router"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 
 func main() {
 	println("Starting server...")
+	config.GetConfig()
 	mux, err := router.InitRouter()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -41,4 +43,5 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
+	println("Save Manager online !")
 }

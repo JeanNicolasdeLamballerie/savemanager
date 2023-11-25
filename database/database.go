@@ -1,9 +1,12 @@
 package database
 
 import (
+	"log"
+	"path/filepath"
+	"savemanager/config"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"log"
 )
 
 type DataBase struct {
@@ -12,7 +15,7 @@ type DataBase struct {
 }
 
 func (this *DataBase) Connect() error {
-	DB, err := gorm.Open(sqlite.Open("main.db"), &gorm.Config{})
+	DB, err := gorm.Open(sqlite.Open(filepath.Join(config.GetProjectDataLocation(), "main.db")), &gorm.Config{})
 	if err != nil {
 		return err
 	}
@@ -34,6 +37,14 @@ type SaveDirectory struct {
 	Profile   Profile `gorm:"foreignKey:ProfileID"`
 	TypeID    uint
 	Type      GameType `gorm:"foreignKey:TypeID"`
+}
+
+type InfoTag struct {
+	gorm.Model
+	Name   string `gorm:"unique"`
+	Color  string
+	TypeID uint
+	Type   GameType `gorm:"foreignKey:TypeID"`
 }
 
 type Profile struct {
