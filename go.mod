@@ -13,6 +13,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/ncruces/zenity v0.10.10 // indirect
 	github.com/olahol/melody v1.1.4 // indirect
+	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/randall77/makefat v0.0.0-20210315173500-7ddd0e42c844 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
