@@ -13,7 +13,7 @@ import (
 
 // Assigns a filename (e.g ER0000) to a game name (e.g Elden Ring).
 // KEYS => Files, VALUES => Games
-var SAVEFILES_NAMES_AND_GAMES = map[string]string{
+var SAVEFILES_AND_GAMES_NAMES = map[string]string{
 	"ER0000":      "Elden Ring",                             // %appdata% bs
 	"draks0005":   "Dark Souls PtDE",                        // C:\Users\%user\Documents\NBGI  => IN FOLDER DARKSOULS >(number?)
 	"DRAKS0005":   "Dark Souls Remastered",                  // C:\Users\%user\Documents\NBGI => IN FOLDER DARK SOULS REMASTERED > number
@@ -68,7 +68,7 @@ func checkFilesInDirectory(information *SaveDirectoryInformations) func(path str
 			println("PATH : ", path)
 		}
 		filename := strings.Split(path, ".")[0]
-		gameType, isKnown := SAVEFILES_NAMES_AND_GAMES[filename]
+		gameType, isKnown := SAVEFILES_AND_GAMES_NAMES[filename]
 		if !isKnown {
 			gameType = "custom"
 		}
@@ -86,11 +86,10 @@ func checkFilesInDirectory(information *SaveDirectoryInformations) func(path str
 				information.Tags = append(information.Tags, "convergence")
 			}
 
-			if strings.Contains(path, ".sl2") {
-				information.Tags = append(information.Tags, "retail")
-			}
 		}
-
+		if strings.Contains(path, ".sl2") {
+			information.Tags = append(information.Tags, "retail")
+		}
 		return nil
 	}
 
