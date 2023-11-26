@@ -71,6 +71,19 @@ func InitRouter() (*chi.Mux, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// db.CreateProfile(&database.Profile{
+	// 	// Model:           gorm.Model{},
+	// 	ProfileName: "test",
+	// 	GamePath:    "Path here",
+	// 	Type:        &database.GameType{Name: "Elden Bling", Filename: "ER0000"},
+	// 	SaveDirectories: []*database.SaveDirectory{{
+	// 		Name: "abc",
+	// 		Path: "def",
+	// 		//	Profile:  &database.Profile{},
+	// 		InfoTags: []*database.InfoTag{},
+	// 	}},
+	// })
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	//http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
