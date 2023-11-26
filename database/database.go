@@ -1,9 +1,14 @@
 package database
 
 import (
+	"log"
+	"path/filepath"
+	"savemanager/config"
+	"savemanager/filemanager"
+
+	// "github.com/pelletier/go-toml/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"log"
 )
 
 type DataBase struct {
@@ -12,18 +17,47 @@ type DataBase struct {
 }
 
 func (this *DataBase) Connect() error {
-	DB, err := gorm.Open(sqlite.Open("main.db"), &gorm.Config{})
+	DB, err := gorm.Open(sqlite.Open(filepath.Join(config.GetProjectDataLocation(), "main.db")), &gorm.Config{})
 	if err != nil {
 		return err
 	}
 
-	err = DB.AutoMigrate(&Profile{}, &SaveDirectory{})
+	err = DB.AutoMigrate(&Profile{}, &SaveDirectory{}, &InfoTag{}, &GameType{})
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	this.DB = DB
+	configuration := config.GetConfig()
+	println("Savemanager's current version :", configuration.Version)
+	if configuration.SeedAction {
+		this.AutomaticSeeding()
+		configuration.SeedAction = false
+		configuration.Save()
+
+	}
 	return nil
+}
+func (this *DataBase) AutomaticSeeding() error {
+	gameTypes := []*GameType{}
+
+	for fileName, gameName := range filemanager.SAVEFILES_AND_GAMES_NAMES {
+		convergence := InfoTag{Name: "convergence", Color: "red"}
+		seamless := InfoTag{Name: "seamless", Color: "blue"}
+		retail := InfoTag{Name: "retail", Color: "black"}
+		infoTags := []*InfoTag{&retail}
+		if gameName == "Elden Ring" {
+			infoTags = append(infoTags, &convergence, &seamless)
+		}
+
+		gameTypes = append(gameTypes, &GameType{Name: gameName, Filename: fileName, InfoTags: infoTags})
+	}
+
+	err := this.DB.Create(&gameTypes).Error
+	if err != nil {
+		println("Seeding gametypes failed. See error :")
+		println(gameTypes)
+	}
+	return err
 }
 
 type SaveDirectory struct {
@@ -31,34 +65,34 @@ type SaveDirectory struct {
 	Name      string `gorm:"unique"`
 	Path      string `gorm:"notNull"`
 	ProfileID uint
-	Profile   Profile `gorm:"foreignKey:ProfileID"`
+	//	Profile   *Profile `gorm:"foreignKey:ProfileID"`
+
+	InfoTags []*InfoTag `gorm:"many2many:infoTag_SaveDirectories;"`
+}
+
+type InfoTag struct {
+	gorm.Model
+	Name   string
+	Color  string
+	TypeID uint
+	//Type            *GameType        `gorm:"foreignKey:TypeID"`
+	SaveDirectories []*SaveDirectory `gorm:"many2many:infoTag_SaveDirectories;"`
 }
 
 type Profile struct {
 	gorm.Model
-	ProfileName     string          `gorm:"unique"`
-	SaveDirectories []SaveDirectory `gorm:"foreignKey:ProfileID"`
+	ProfileName     string `gorm:"unique"`
+	GamePath        string
+	TypeID          uint
+	Type            *GameType        `gorm:"foreignKey:TypeID"`
+	SaveDirectories []*SaveDirectory `gorm:"foreignKey:ProfileID"`
 }
-
-// func main() {
-// 	this.DB, err := connectToSQLite()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	defer func() {
-// 		this.DBInstance, _ := db.DB()
-// 		_ = this.DBInstance.Close()
-// 	}()
-
-// 	// Perform database migration
-// 	err = this.DB.AutoMigrate(&SaveDirectory{}, &Profile{})
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	// Your CRUD operations go here
-
-// }
+type GameType struct {
+	gorm.Model
+	Name     string `gorm:"unique"`
+	Filename string
+	InfoTags []*InfoTag `gorm:"foreignKey:TypeID"`
+}
 
 // INSERT
 func (this DataBase) CreateProfile(profile *Profile) (*uint, error) {
@@ -67,7 +101,7 @@ func (this DataBase) CreateProfile(profile *Profile) (*uint, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	print(profile, &profile)
+	//print(profile, &profile)
 	return &profile.ID, nil
 }
 func (this DataBase) CreateSaveDirectory(save *SaveDirectory) (*uint, error) {
@@ -108,12 +142,14 @@ func (this DataBase) GetSaveDirectoryByID(saveDirectoryID uint) (*SaveDirectory,
 
 func (this DataBase) GetSavesFromProfile(profile *Profile) []SaveDirectory {
 	var saves []SaveDirectory
-	err := this.DB.Model(profile).Association("SaveDirectories").Find(&saves)
-	if err != nil {
-		println("Error fetching the saves !")
-		println(err)
-		return []SaveDirectory{}
-	}
+	// err := this.DB.Model(profile).Association("SaveDirectories").Find(&saves)
+
+	this.DB.Model(profile).Preload("SaveDirectories").Preload("GameTypes").Preload("InfoTags", "TypeID IN (?)", profile.TypeID).Find(&saves)
+	// if err != nil {
+	// 	println("Error fetching the saves !")
+	// 	println(err.Error())
+	//		return []SaveDirectory{}
+	//}
 	return saves
 }
 
